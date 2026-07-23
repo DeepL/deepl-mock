@@ -363,7 +363,26 @@ async function handleUsage(req, res) {
         api_key_character_count: usage.character_count,
         character_count: usage.character_count,
       },
+      {
+        product_type: 'speechToText',
+        billing_unit: 'minutes',
+        api_key_unit_count: 0,
+        account_unit_count: 0,
+        api_key_character_count: 0,
+        character_count: 0,
+      },
+      {
+        product_type: 'speechToSpeech',
+        billing_unit: 'minutes',
+        api_key_unit_count: 0,
+        account_unit_count: 0,
+        api_key_character_count: 0,
+        character_count: 0,
+      },
     ];
+
+    response.speech_to_speech_minutes_count = 0;
+    response.speech_to_speech_minutes_limit = 0;
   }
 
   res.send(response);

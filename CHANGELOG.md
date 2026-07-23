@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Add `speechToText` and `speechToSpeech` products (`billing_unit: minutes`)
+  and top-level `speech_to_speech_minutes_count` /
+  `speech_to_speech_minutes_limit` fields to `GET /v2/usage` responses for Pro
+  accounts, matching the live API shape.
 - Add `GET /v3/languages?resource=<resource>` endpoint returning the languages
   supported by a resource. Each language carries `lang`, `name`, `status`,
   `usable_as_source`, `usable_as_target`, and a `features` object keyed by
