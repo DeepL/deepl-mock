@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Support the `glossary_ids` parameter on the `/v2/translate` and `/v2/document`
+  endpoints, allowing up to 5 glossaries per request. Enforces mutual exclusion
+  with `glossary_id`, the `source_lang` requirement, and the 5-glossary limit.
+- Validate the `style_id` and `translation_memory_id` /
+  `translation_memory_threshold` parameters on the `/v2/document` endpoint,
+  mirroring the existing `/v2/translate` handling (style-rule/target-language
+  match, translation-memory target-language support, and threshold range).
 - Add `speechToText` and `speechToSpeech` products (`billing_unit: minutes`)
   and top-level `speech_to_speech_minutes_count` /
   `speech_to_speech_minutes_limit` fields to `GET /v2/usage` responses for Pro
@@ -76,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated dependencies to fix GHSA-j3q9-mxjg-w52f and GHSA-27v5-c462-wpq7 (path-to-regexp DoS vulnerability)
 - Updated transitive `fast-uri` to fix GHSA-q3j6-qgpj-74h6 (path traversal via percent-encoded dot segments) and GHSA-v39h-62p7-jpjc (host confusion via percent-encoded authority delimiters)
 - Updated follow-redirects to fix GHSA-r4q5-vmmm-2653 (auth header leak on cross-domain redirects)
+- Bumped transitive `fast-uri` to `3.1.5` to fix GHSA-7p8r-x3mc-p8w7 (host confusion via backslash authority introducer). Unblocks the `npm audit --production` gate on the MR pipeline.
 
 ## [1.20.0] - 2026-03-17
 ### Added

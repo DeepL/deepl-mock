@@ -203,18 +203,74 @@ function getParamTone(req, targetLang) {
   });
 }
 
+function resolveGlossary(glossaryId, authKey) {
+  try {
+    return glossariesV2.getGlossary(glossaryId, authKey);
+  } catch {
+    return glossariesV3.getGlossary(glossaryId, authKey);
+  }
+}
+
 function getParamGlossary(req, sourceLang) {
   const { authKey } = req.user_account;
   const glossaryId = getParam(req, 'glossary_id',
     { validator: (id) => (id === undefined || glossariesV2.isValidGlossaryId(id)) });
-  if (glossaryId !== undefined && sourceLang === undefined) {
+
+  // glossary_ids may be sent as a JSON array, a repeated form parameter, or a
+  // comma-separated string. Normalise all of these into a flat list of IDs.
+  const glossaryIdsRaw = getParam(req, 'glossary_ids', { multi: true });
+  const glossaryIds = glossaryIdsRaw
+    .flatMap((value) => String(value).split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (glossaryId !== undefined && glossaryIds.length > 0) {
+    throw new util.HttpError('Parameters glossary_id and glossary_ids cannot be used together', 400);
+  }
+
+  let ids = [];
+  if (glossaryIds.length > 0) {
+    ids = glossaryIds;
+  } else if (glossaryId !== undefined) {
+    ids = [glossaryId];
+  }
+
+  if (ids.length === 0) {
+    return undefined;
+  }
+
+  if (sourceLang === undefined) {
     throw new util.HttpError('Use of a glossary requires the source_lang parameter to be specified', 400);
   }
-  try {
-    return glossaryId === undefined ? undefined : glossariesV2.getGlossary(glossaryId, authKey);
-  } catch {
-    return glossaryId === undefined ? undefined : glossariesV3.getGlossary(glossaryId, authKey);
+
+  if (ids.length > 5) {
+    throw new util.HttpError('Parameter glossary_ids must not contain more than 5 glossary IDs', 400);
   }
+
+  ids.forEach((id) => {
+    if (!glossariesV2.isValidGlossaryId(id)) {
+      throw new util.HttpError("Value for 'glossary_ids' not supported.", 400);
+    }
+  });
+
+  const glossaries = ids.map((id) => resolveGlossary(id, authKey));
+
+  if (glossaries.length === 1) {
+    return glossaries[0];
+  }
+
+  // Combine multiple glossaries: apply each in order, first match wins.
+  return {
+    translate: (input) => {
+      for (let i = 0; i < glossaries.length; i += 1) {
+        const result = glossaries[i].translate(input);
+        if (result !== null && result !== undefined) {
+          return result;
+        }
+      }
+      return null;
+    },
+  };
 }
 
 function getParamStyleRule(req, targetLang) {
@@ -501,6 +557,9 @@ async function handleDocument(req, res) {
     });
     getParamFormality(req, targetLang);
     const glossary = getParamGlossary(req, sourceLang);
+    // Validated but not otherwise used by the mock server for documents
+    getParamStyleRule(req, targetLang);
+    getParamTranslationMemory(req, targetLang);
     const outputFormat = getParam(req, 'output_format', { lower: true });
 
     if (!req.files || req.files.file === undefined) {
