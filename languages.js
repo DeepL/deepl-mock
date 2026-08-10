@@ -189,6 +189,18 @@ function rephrase(_, targetLang) {
   };
 }
 
+// The spec declares the same response shape for correct as for rephrase, so this returns the same
+// canned text. Worth knowing when writing client-library tests: because the two bodies are
+// identical, a library that pointed its correctText method at /v2/write/rephrase would still pass.
+// Assert the request path, not just the response.
+function correct(_, targetLang) {
+  return {
+    text: mockTexts[norm(targetLang)] ?? '',
+    detected_source_language: targetLang.split('-')[0],
+    target_language: targetLang,
+  };
+}
+
 const VALID_RESOURCES = [
   'translate_text', 'translate_document', 'glossary', 'voice', 'write', 'style_rules',
   'translation_memory',
@@ -254,6 +266,7 @@ module.exports = {
   isGlossarySupportedLanguagePair,
   translate,
   rephrase,
+  correct,
   VALID_RESOURCES,
   getV3Languages,
   getV3Resources,

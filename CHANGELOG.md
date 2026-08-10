@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `translation_memory_threshold` parameters on the `/v2/document` endpoint,
   mirroring the existing `/v2/translate` handling (style-rule/target-language
   match, translation-memory target-language support, and threshold range).
+- Add `POST /v2/write/correct` endpoint, returning an `improvements` array with
+  `text`, `detected_source_language` and `target_language` per input text, to
+  match the live API and the OpenAPI spec. Session behaviour, quota accounting
+  and error shapes follow `/v2/write/rephrase`. Unlike rephrase, `target_lang`
+  is optional (defaulting to English) and `writing_style` and `tone` are not
+  parameters, as the spec declares for this endpoint.
 - Add `speechToText` and `speechToSpeech` products (`billing_unit: minutes`)
   and top-level `speech_to_speech_minutes_count` /
   `speech_to_speech_minutes_limit` fields to `GET /v2/usage` responses for Pro
@@ -55,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mock-server-session-allow-extra-body` session header.
 
 ### Fixed
+- Fix `glossary_ids` when more than one glossary is given. The combined-glossary
+  wrapper called each glossary's `translate` with the input text only, so a v3
+  glossary never received the source and target languages it selects its
+  dictionary from and every such request failed with `Glossary dictionary not
+  found`. A glossary that has no dictionary for the requested language pair is
+  now skipped rather than failing the request.
 - Fix `GET /v3/style_rules` and `GET /v3/translation_memories` handlers to
   accept the coerced number/boolean query-parameter values that
   `VALIDATE_REQUESTS=1` produces. The `allowedValues` arrays previously

@@ -259,11 +259,19 @@ function getParamGlossary(req, sourceLang) {
     return glossaries[0];
   }
 
-  // Combine multiple glossaries: apply each in order, first match wins.
+  // Combine multiple glossaries: apply each in order, first match wins. The language arguments
+  // have to be forwarded, because a v3 glossary picks its dictionary from them. A glossary with no
+  // dictionary for this pair is a miss rather than a failure: it signals that by throwing a 404,
+  // and combining glossaries across language pairs is the point of glossary_ids.
   return {
-    translate: (input) => {
+    translate: (input, translateSourceLang, translateTargetLang) => {
       for (let i = 0; i < glossaries.length; i += 1) {
-        const result = glossaries[i].translate(input);
+        let result = null;
+        try {
+          result = glossaries[i].translate(input, translateSourceLang, translateTargetLang);
+        } catch (err) {
+          if (!(err instanceof util.HttpError) || err.status() !== 404) throw err;
+        }
         if (result !== null && result !== undefined) {
           return result;
         }
@@ -536,6 +544,55 @@ async function handleRephrase(req, res) {
     } else {
       const body = {
         improvements: textArray.map((text) => languages.rephrase(
+          text,
+          util.convertToBcp47(targetLang),
+        )),
+      };
+      res.status(200).send(body);
+    }
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+}
+
+// POST /v2/write/correct. Same session behaviour, quota accounting and error shapes as rephrase,
+// deliberately: in the spec the two endpoints differ only in that correct has no writing_style and
+// no tone, so anything else diverging here would be the mock inventing a difference.
+async function handleCorrect(req, res) {
+  try {
+    let targetLang = getParam(req, 'target_lang', {
+      upper: true,
+      validator: (langCode) => languages.isTargetLanguage(langCode)
+          && languages.supportsWrite(langCode),
+    });
+    // target_lang is optional here, unlike everywhere else in the mock: correcting spelling and
+    // grammar needs no target. EN is the fallback for the same reason handleTranslate assumes it
+    // when no source language is given. Note rephrase has no such fallback and throws a raw
+    // TypeError on a request without target_lang; that is pre-existing and not touched here.
+    if (targetLang === undefined) {
+      targetLang = 'EN';
+    }
+    if (targetLang === 'EN') {
+      targetLang = 'EN-US';
+    } else if (targetLang === 'PT') {
+      targetLang = 'PT-PT';
+    }
+    const textArray = getParam(req, 'text', { multi: true, required: true });
+
+    const totalCharacters = textArray.reduce((total, text) => (total + text.length), 0);
+
+    if (req.session.respond_429_count > 0) {
+      req.session.respond_429_count -= 1;
+      res.status(429).send();
+    } else if (
+      !checkLimit(req.user_account.usage, 'character', totalCharacters)
+    ) {
+      res
+        .status(456)
+        .send({ message: 'Quota for this billing period has been exceeded.' });
+    } else {
+      const body = {
+        improvements: textArray.map((text) => languages.correct(
           text,
           util.convertToBcp47(targetLang),
         )),
@@ -1183,6 +1240,7 @@ async function startServer() {
   app.use('/v2/translate', express.json());
   app.use('/v2/translate_secondary', express.json());
   app.use('/v2/write/rephrase', express.json());
+  app.use('/v2/write/correct', express.json());
   app.use('/v2/document/:document_id', express.json());
   app.use('/v2/document/:document_id/result', express.json());
   // Maximum glossary size is 10MiB, but there is some extra request overhead
@@ -1220,6 +1278,11 @@ async function startServer() {
 
   app.get('/v2/write/rephrase', auth, requireUserAgent, handleRephrase);
   app.post('/v2/write/rephrase', auth, requireUserAgent, handleRephrase);
+
+  // The spec declares POST only. GET is registered anyway, matching rephrase and translate above:
+  // the mock accepts both everywhere so client libraries can exercise their form-encoded paths.
+  app.get('/v2/write/correct', auth, requireUserAgent, handleCorrect);
+  app.post('/v2/write/correct', auth, requireUserAgent, handleCorrect);
 
   app.post('/v2/document', auth, requireUserAgent, handleDocument);
 
