@@ -138,13 +138,13 @@ describe('import jobs', () => {
       { pageSize: 3 },
     );
 
-    // created_time/updated_time are never returned by the live API; last_used_time only for
+    // creation_time/updated_time are never returned by the live API; last_used_time only for
     // segments that have been used.
     page.segments.forEach((segment) => {
-      expect(segment).not.toHaveProperty('created_time');
+      expect(segment).not.toHaveProperty('creation_time');
       expect(segment).not.toHaveProperty('updated_time');
       segment.targets.forEach((target) => {
-        expect(target).not.toHaveProperty('created_time');
+        expect(target).not.toHaveProperty('creation_time');
         expect(target).not.toHaveProperty('updated_time');
       });
     });

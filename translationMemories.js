@@ -39,7 +39,7 @@ util.scheduleCleanup(jobs, (job, jobId) => {
  * Builds a deterministic set of segments, so tests can rely on stable source
  * and target texts across runs.
  *
- * Segment timestamps match the live API, which never returns created_time or
+ * Segment timestamps match the live API, which never returns creation_time or
  * updated_time on a segment and returns last_used_time only for segments that
  * have actually been used. Every third segment therefore carries last_used_time
  * and the rest carry no timestamps at all, so client libraries are exercised on
@@ -101,7 +101,7 @@ function extractTranslationMemoryInfo(tm) {
 // which omits absent timestamps rather than sending nulls.
 function withTimestamps(target, segment) {
   const result = target;
-  if (segment.createdTime) result.created_time = segment.createdTime.toISOString();
+  if (segment.creationTime) result.creation_time = segment.creationTime.toISOString();
   if (segment.updatedTime) result.updated_time = segment.updatedTime.toISOString();
   if (segment.lastUsedTime) result.last_used_time = segment.lastUsedTime.toISOString();
   return result;
