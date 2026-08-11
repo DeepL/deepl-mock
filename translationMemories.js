@@ -239,8 +239,8 @@ function extractJobInfo(job) {
     job_id: job.jobId,
     product: 'translation_memory',
     operation: job.operation,
-    created_at: job.createdAt.toISOString(),
-    updated_at: job.updatedAt.toISOString(),
+    creation_time: job.creationTime.toISOString(),
+    updated_time: job.updatedTime.toISOString(),
     parameters: {},
     results: [result],
   };
@@ -287,8 +287,8 @@ function createImportJob(authKey, baseUrl, sourceFile, displayName, processingPo
     authKey,
     operation: 'import',
     status: 'awaiting_input',
-    createdAt: now,
-    updatedAt: now,
+    creationTime: now,
+    updatedTime: now,
     used: now,
     displayName: displayName || sourceFile.file_name,
     sourceFile: {
@@ -349,7 +349,7 @@ function completeImportUpload(jobId) {
   job.uploaded = true;
   job.translationMemoryId = tmId;
   job.skippedSegmentCount = 0;
-  job.updatedAt = now;
+  job.updatedTime = now;
   job.used = now;
   console.log(`Uploaded translation memory import job (${jobId}), created TM ${tmId}`);
 }
@@ -382,8 +382,8 @@ function createExportJob(tmId, authKey, baseUrl, processingPolls = 0) {
     authKey,
     operation: 'export',
     status: 'processing',
-    createdAt: now,
-    updatedAt: now,
+    creationTime: now,
+    updatedTime: now,
     used: now,
     translationMemoryId: tmId,
     baseUrl,
@@ -422,10 +422,10 @@ function getJobInfo(jobId, authKey) {
       job.remainingProcessingPolls -= 1;
     } else {
       job.status = 'completed';
-      job.updatedAt = new Date();
+      job.updatedTime = new Date();
       if (job.operation === 'export') {
         job.downloadUrl = `${job.baseUrl}/__download__/translation_memories/${jobId}`;
-        job.expiresAt = new Date(job.updatedAt.getTime() + 3600 * 1000);
+        job.expiresAt = new Date(job.updatedTime.getTime() + 3600 * 1000);
         // Recorded on completion, not creation, so reuse always points at a job that has
         // actually finished.
         exportJobsByTm.set(exportJobKey(job.authKey, job.translationMemoryId), jobId);
