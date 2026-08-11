@@ -32,6 +32,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `GET /v3/languages/resources` endpoint listing each resource and the
   features it supports, with `needs_source_support` / `needs_target_support`
   flags per feature.
+- Add the remaining `/v3/translation_memories` management endpoints:
+  `GET /v3/translation_memories/{translation_memory_id}`,
+  `GET /v3/translation_memories/{translation_memory_id}/segments` (cursor-based
+  pagination via `page_cursor`/`next_page_cursor`, plus `filter_text` and
+  `filter_case_sensitive`), `DELETE /v3/translation_memories/{translation_memory_id}`,
+  `POST /v3/translation_memories/import`,
+  `POST /v3/translation_memories/{translation_memory_id}/export` (answers 200
+  when reusing a completed export, 202 for a new job), and
+  `GET /v3/translation_memories/jobs/{job_id}`.
+  Import and export jobs complete on the first poll. Set the
+  `mock-server-session-tm-job-processing-polls` session header to make a job
+  report a non-terminal status that many times first, to exercise polling
+  loops. Matching the live API, an uploaded import keeps reporting
+  `awaiting_input` (rather than `processing`) until the upload is detected, so
+  clients must poll through that status rather than treating it as terminal.
+- Add mock-only stand-ins for the Asset Store URLs referenced by translation
+  memory jobs: `PUT /__upload__/translation_memories/{job_id}` (completing the
+  upload starts the import) and `GET /__download__/translation_memories/{job_id}`
+  (serves the exported TMX). Both are unauthenticated, matching the signed
+  links the live API hands out, and are excluded from spec validation.
+- Include `creation_time` and `updated_time` in translation memory responses,
+  matching the live API's translation memory detail shape.
+- Exempt the translation memory sub-paths from OpenAPI spec validation. The
+  published spec describes only `GET /v3/translation_memories`, so with
+  `VALIDATE_REQUESTS=1` / `VALIDATE_RESPONSES=1` every other translation memory
+  request would otherwise fail validation with "not found". The list endpoint
+  itself stays validated.
 - Add `GET /v3/translation_memories` endpoint for listing translation memories
 - Add support for `translation_memory_id` and `translation_memory_threshold`
   parameters in `/v2/translate`

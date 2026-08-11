@@ -23,9 +23,17 @@ app.use(nocache());
 
 const fileUpload = require('express-fileupload');
 
-app.use(fileUpload({
-  createParentPath: true,
-}));
+// express-fileupload throws on requests without a Content-Type header, which
+// callers of the mock's Asset Store stand-in are not required to send. Only
+// the document endpoint uploads multipart bodies, so skip everything else.
+const fileUploadMiddleware = fileUpload({ createParentPath: true });
+app.use((req, res, next) => {
+  if (req.headers['content-type'] === undefined) {
+    next();
+    return;
+  }
+  fileUploadMiddleware(req, res, next);
+});
 
 const morgan = require('morgan');
 // Logging utility
@@ -1184,6 +1192,149 @@ async function handleTranslationMemoryList(req, res) {
   }
 }
 
+function getParamTranslationMemoryId(req) {
+  return getParam(req, 'translation_memory_id', {
+    params: true,
+    required: true,
+    validator: (id) => translationMemories.isValidTranslationMemoryId(id),
+  });
+}
+
+// Base URL of this mock, used to build the upload and download URLs that the
+// real API points at the Asset Store.
+function mockBaseUrl(req) {
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+async function handleTranslationMemoryGet(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const tmId = getParamTranslationMemoryId(req);
+    res.status(200).send(translationMemories.getTranslationMemoryInfo(tmId, authKey));
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+async function handleTranslationMemorySegments(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const tmId = getParamTranslationMemoryId(req);
+
+    // See handleStyleRuleList — dual-form accepts both string (no validator)
+    // and coerced integer (VALIDATE_REQUESTS=1).
+    const pageSizeAllowedValues = Array.from({ length: 100 }, (_, i) => i + 1)
+      .flatMap((n) => [n, String(n)]);
+    const pageSizeStr = getParam(req, 'page_size', { default: '50', allowedValues: pageSizeAllowedValues });
+    const pageSize = Number.parseInt(pageSizeStr, 10);
+
+    const pageCursor = getParam(req, 'page_cursor');
+    const filterText = getParam(req, 'filter_text');
+    const filterCaseSensitive = getParam(req, 'filter_case_sensitive', {
+      default: '0',
+      allowedValues: ['0', '1', 'true', 'false', true, false],
+    });
+
+    const segments = translationMemories.getTranslationMemorySegments(tmId, authKey, {
+      pageSize,
+      pageCursor,
+      filterText,
+      filterCaseSensitive: ['1', 'true', true].includes(filterCaseSensitive),
+    });
+    res.status(200).send(segments);
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+async function handleTranslationMemoryDelete(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const tmId = getParamTranslationMemoryId(req);
+    translationMemories.removeTranslationMemory(tmId, authKey);
+    res.status(204).send();
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+async function handleTranslationMemoryImportCreate(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const sourceFile = getParam(req, 'source_file', { required: true });
+    const parameters = getParam(req, 'parameters');
+    const importJob = translationMemories.createImportJob(
+      authKey,
+      mockBaseUrl(req),
+      sourceFile,
+      parameters?.display_name,
+      req.session?.tm_job_processing_polls || 0,
+    );
+    res.status(202).send(importJob);
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+// Stands in for the Asset Store upload URL handed out by the import endpoint.
+// Unauthenticated by design: the real upload URL is a signed link, so client
+// libraries do not send their API key here.
+async function handleTranslationMemoryUpload(req, res) {
+  try {
+    const jobId = getParam(req, 'job_id', { params: true, required: true });
+    translationMemories.completeImportUpload(jobId);
+    res.status(200).send();
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+async function handleTranslationMemoryExportCreate(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const tmId = getParamTranslationMemoryId(req);
+    const { reusedExisting, body } = translationMemories.createExportJob(
+      tmId,
+      authKey,
+      mockBaseUrl(req),
+      req.session?.tm_job_processing_polls || 0,
+    );
+    res.status(reusedExisting ? 200 : 202).send(body);
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+async function handleTranslationMemoryJobGet(req, res) {
+  try {
+    const { authKey } = req.user_account;
+    const jobId = getParam(req, 'job_id', { params: true, required: true });
+    res.status(200).send(translationMemories.getJobInfo(jobId, authKey));
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
+// Stands in for the Asset Store download URL returned by a completed export
+// job. Unauthenticated for the same reason as the upload endpoint.
+async function handleTranslationMemoryDownload(req, res) {
+  try {
+    const jobId = getParam(req, 'job_id', { params: true, required: true });
+    const content = translationMemories.getExportContent(jobId);
+    res.status(200).type('application/xml').send(content);
+  } catch (err) {
+    console.log(err.message);
+    res.status(err.status()).send(err.body());
+  }
+}
+
 function handleHealthz(req, res) {
   res.status(200).send('ok');
 }
@@ -1247,6 +1398,9 @@ async function startServer() {
   app.use('/v2/glossaries', express.json({ limit: '11mb' }));
   app.use('/v3/glossaries', express.json({ limit: '11mb' }));
   app.use('/v3/translation_memories', express.json());
+  // Mock stand-in for the Asset Store upload URL: consume the raw TMX body so
+  // the request completes, but the mock never parses it.
+  app.use('/__upload__/translation_memories', express.raw({ type: '*/*', limit: '11mb' }));
   app.use('/v3/style_rules', express.json());
   app.use('/v3/languages', express.json());
 
@@ -1308,7 +1462,21 @@ async function startServer() {
   app.patch('/v3/glossaries/:glossary_id', auth, requireUserAgent, handleGlossaryPatch);
   app.put('/v3/glossaries/:glossary_id/dictionaries', auth, requireUserAgent, handleDictionaryPut);
 
+  // The jobs sub-path must be registered before the /:translation_memory_id
+  // routes so a job ID is never mistaken for a translation memory ID.
+  app.get('/v3/translation_memories/jobs/:job_id', auth, requireUserAgent, handleTranslationMemoryJobGet);
+  app.post('/v3/translation_memories/import', auth, requireUserAgent, handleTranslationMemoryImportCreate);
   app.get('/v3/translation_memories', auth, requireUserAgent, handleTranslationMemoryList.bind(null));
+  app.get('/v3/translation_memories/:translation_memory_id', auth, requireUserAgent, handleTranslationMemoryGet);
+  app.get('/v3/translation_memories/:translation_memory_id/segments', auth, requireUserAgent, handleTranslationMemorySegments);
+  app.delete('/v3/translation_memories/:translation_memory_id', auth, requireUserAgent, handleTranslationMemoryDelete);
+  app.post('/v3/translation_memories/:translation_memory_id/export', auth, requireUserAgent, handleTranslationMemoryExportCreate);
+
+  // Mock-only stand-ins for the Asset Store URLs referenced by import and
+  // export jobs. No auth: the real URLs are signed links.
+  app.put('/__upload__/translation_memories/:job_id', handleTranslationMemoryUpload);
+  app.post('/__upload__/translation_memories/:job_id', handleTranslationMemoryUpload);
+  app.get('/__download__/translation_memories/:job_id', handleTranslationMemoryDownload);
 
   app.get('/v3/style_rules', auth, requireUserAgent, handleStyleRuleList.bind(null));
   app.post('/v3/style_rules', auth, requireUserAgent, handleStyleRuleCreate.bind(null));

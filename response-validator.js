@@ -23,6 +23,19 @@ const VALIDATION_IGNORED_PATHS = [
   /^\/v2\/document\/[^/]+\/result$/,
   /^\/healthz$/, // mock-only liveness endpoint
   /^\/__session__\//, // mock-only test helpers (e.g. last-request)
+  // Translation memory management endpoints. These are fully specified in
+  // api-docs, but the published spec this validator defaults to still only
+  // describes GET /v3/translation_memories, so every other translation memory
+  // request would fail validation with "not found". Drop this entry once the
+  // published spec catches up — the mock already conforms to the api-docs
+  // definitions, verified by running the SDK suites against it with
+  // DEEPL_MOCK_SPEC_PATH pointed at api-reference/openapi.yaml. Note the
+  // trailing `/.`, which keeps the in-spec list endpoint validated.
+  /^\/v3\/translation_memories\/./,
+  // Mock stand-ins for the Asset Store URLs used by translation memory
+  // import/export jobs — not part of the DeepL API.
+  /^\/__upload__\//,
+  /^\/__download__\//,
 ];
 
 // Truly mock-internal paths that should also bypass request capture and 5xx
@@ -33,6 +46,8 @@ const VALIDATION_IGNORED_PATHS = [
 const MOCK_ONLY_PATHS = [
   /^\/healthz$/,
   /^\/__session__\//,
+  /^\/__upload__\//,
+  /^\/__download__\//,
 ];
 
 function isMockOnlyPath(p) {

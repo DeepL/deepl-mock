@@ -23,6 +23,12 @@ function createSession(headers, socket) {
     init_team_doc_limit: 'mock-server-session-init-team-document-limit',
     doc_queue_time: 'mock-server-session-doc-queue-time',
     doc_translate_time: 'mock-server-session-doc-translate-time',
+    // Number of polls a translation memory import/export job reports a
+    // non-terminal status before completing — "awaiting_input" for an uploaded
+    // import (matching the live API, which detects the upload asynchronously),
+    // "processing" for an export. Defaults to 0, so jobs complete on the first
+    // poll unless a test wants to exercise its polling loop.
+    tm_job_processing_polls: 'mock-server-session-tm-job-processing-polls',
     expect_proxy: 'mock-server-session-expect-proxy',
     allow_missing_user_agent: 'mock-server-session-allow-missing-user-agent',
     allow_reconnections: 'mock-server-session-allow-reconnections',
