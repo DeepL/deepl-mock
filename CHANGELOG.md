@@ -5,10 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- `/v2/translate` no longer requires `source_lang` when a glossary is used. The
+  source language is detected and the glossary's dictionary for the detected
+  language pair is applied, matching the API. `/v2/document` still requires
+  `source_lang` with a glossary.
 ### Added
 - Support the `glossary_ids` parameter on the `/v2/translate` and `/v2/document`
   endpoints, allowing up to 5 glossaries per request. Enforces mutual exclusion
-  with `glossary_id`, the `source_lang` requirement, and the 5-glossary limit.
+  with `glossary_id` and the 5-glossary limit.
 - Validate the `style_id` and `translation_memory_id` /
   `translation_memory_threshold` parameters on the `/v2/document` endpoint,
   mirroring the existing `/v2/translate` handling (style-rule/target-language

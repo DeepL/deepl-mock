@@ -219,7 +219,7 @@ function resolveGlossary(glossaryId, authKey) {
   }
 }
 
-function getParamGlossary(req, sourceLang) {
+function getParamGlossary(req) {
   const { authKey } = req.user_account;
   const glossaryId = getParam(req, 'glossary_id',
     { validator: (id) => (id === undefined || glossariesV2.isValidGlossaryId(id)) });
@@ -245,10 +245,6 @@ function getParamGlossary(req, sourceLang) {
 
   if (ids.length === 0) {
     return undefined;
-  }
-
-  if (sourceLang === undefined) {
-    throw new util.HttpError('Use of a glossary requires the source_lang parameter to be specified', 400);
   }
 
   if (ids.length > 5) {
@@ -469,7 +465,7 @@ async function handleTranslate(req, res) {
       upper: true, validator: languages.isSourceLanguage,
     });
     const textArray = getParam(req, 'text', { multi: true, required: true });
-    const glossary = getParamGlossary(req, sourceLang);
+    const glossary = getParamGlossary(req);
 
     // The following parameters are validated but not used by the mock server
     getParam(req, 'split_sentences', { default: '1', allowedValues: ['0', '1', 'nonewlines'] });
@@ -621,7 +617,13 @@ async function handleDocument(req, res) {
       upper: true, validator: languages.isSourceLanguage,
     });
     getParamFormality(req, targetLang);
-    const glossary = getParamGlossary(req, sourceLang);
+    // Document translation cannot detect the source language when a glossary is used.
+    if (sourceLang === undefined && (getParam(req, 'glossary_id') !== undefined
+        || getParam(req, 'glossary_ids', { multi: true }).length > 0)) {
+      throw new util.HttpError('Use of a glossary requires the source_lang parameter to be specified', 400);
+    }
+
+    const glossary = getParamGlossary(req);
     // Validated but not otherwise used by the mock server for documents
     getParamStyleRule(req, targetLang);
     getParamTranslationMemory(req, targetLang);

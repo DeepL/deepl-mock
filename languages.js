@@ -162,7 +162,7 @@ function translateLine(input, sourceLang, targetLang, glossary) {
 
 function translate(input, targetLang, sourceLangIn, glossary) {
   let sourceLang = sourceLangIn;
-  if (!sourceLang && glossary === undefined) {
+  if (!sourceLang) {
     sourceLang = 'EN';
     Object.entries(mockTexts).some(([code, text]) => {
       if (input.startsWith(text)) {
