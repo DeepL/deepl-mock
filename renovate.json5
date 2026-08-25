@@ -1,0 +1,25 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":pinAllExceptPeerDependencies",
+    "helpers:pinGitHubActionDigests",
+    "local>deepl-org/deepl/renovate/shared-renovate-config:auto-merge-non-major-updates.json5",
+  ],
+  timezone: "Europe/Berlin",
+  semanticCommits: "enabled",
+  labels: ["renovatebot"],
+  minimumReleaseAge: "3 days",
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ["before 6am on monday"],
+  },
+  packageRules: [
+    {
+      description: "One MR for the dev tooling, which the mock server does not ship",
+      matchDepTypes: ["devDependencies"],
+      matchUpdateTypes: ["minor", "patch", "pin"],
+      groupName: "dev dependencies",
+    },
+  ],
+}
