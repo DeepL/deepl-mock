@@ -21,7 +21,7 @@
     "js-yaml": "^4.3.1",
     "morgan": "^1.11.0",
     "nocache": "^3.0.1",
-    "qs": "~6.15.0"
+    "qs": "~6.16.0"
   },
   "devDependencies": {
     "eslint": "^7.32.0",
